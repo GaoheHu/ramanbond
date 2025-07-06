@@ -1,0 +1,59 @@
+import math
+from typing import Tuple 
+from decimal import getcontext,Decimal
+from .conversion import ANGSTROM2BOHR
+# Covalent atomic radii in Angstrom
+RBS_DICT_ANGSTROM: dict[str, float] = {
+'H': 0.31,'He': 0.28,'Li': 1.28,'Be': 0.96,'B': 0.84,'C': 0.70,'N': 0.71,'O':
+    0.66,'F': 0.57,'Ne': 0.58,'Na': 1.66, 'Mg': 1.41,'Al': 1.21,'Si': 1.11,'P':
+    1.07,'S': 1.05,'Cl': 1.02,'Ar': 1.06, 'Cu':1.38, 'Zn': 1.31, 'Ag':
+    1.45,'Au': 1.36
+}
+
+RBS_DICT_BOHR: dict[str, float] = {}
+
+for key in RBS_DICT_ANGSTROM:
+    RBS_DICT_BOHR[key] = ANGSTROM2BOHR(RBS_DICT_ANGSTROM[key])
+
+
+def penalty_fucntion(parameters: Tuple[float,float], Za, Zb, distance,
+                     anglecos):
+    # The penalty function for LoProp.
+    sum_cov_distance = RBS_DICT_BOHR[Za] + RBS_DICT_BOHR[Zb]
+    try:
+        if distance < 1.1*sum_cov_distance:
+            return (math.exp(parameters[0]*(distance/sum_cov_distance)**2) +
+                    math.exp(parameters[1]*(1-anglecos)))
+        else:
+            return (math.exp(2*parameters[0]*(distance/sum_cov_distance)**2) +
+                    math.exp(parameters[1]*(1-anglecos)))
+    except OverflowError:
+        return float("inf")
+
+def inter_atomic_lambda(parameters:Tuple[float,float], atom1, atom2, distance, angle_cos):
+    # Return lambda between atom a and atom b
+    # To constrcut a matrix lambda
+    getcontext().prec = 28
+    try:
+        if distance == 0:
+            return 0.0
+        else:
+            before_L = 1/(2*penalty_fucntion(parameters, atom1, atom2, distance, angle_cos))
+    except OverflowError:
+        before_L = 0.0
+
+    return before_L
+
+def calc_charge_flow(parameters:Tuple[float,float], atom1, atom2, distance,
+                     angle_cos, lambda_i, lambda_j):
+    try:
+        charge_flow = -1 *( (Decimal(lambda_i) - Decimal(lambda_j)) /
+                        (Decimal(str(2*penalty_fucntion(parameters, atom1, atom2, distance,
+                                        angle_cos)))))
+        # charge_flow = -1 *( (lambda_i, - lambda_j) /
+        #                    2*penalty_fucntion(parameters, atom1, atom2, distance,
+        #                                 angle_cos))
+    except OverflowError:
+        charge_flow = Decimal('0.0')
+
+    return charge_flow
