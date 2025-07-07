@@ -4,7 +4,7 @@ from typing import Tuple
 from decimal import Decimal
 
 from .util import inter_atomic_lambda, calc_charge_flow
-from conversion import ANGSTROM2BOHR
+from .conversion import ANGSTROM2BOHR
 # This is basically a minimal version of chemPacakge collection
 # Works for ADF and AMS only
 try:
