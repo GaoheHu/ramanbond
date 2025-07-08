@@ -14,44 +14,27 @@ try:
             AMS.__init__(self, name=pol_out)
             self._collect(abort=True)
 
-        def atomic_polarizability(self,component="all"):
+        def atomic_polarizability(self):
         # Local part of Hirshfeld partitioned polarizability
-            directions = {"xx": int(0), "yy":int(1), "zz": int(2)}
-            if component in directions:
-                direction = directions[component]
-                return self.hirshfeld_induced_dipoles_loc[:,direction,direction]
-            elif component =="all":
-                return 1/3 * np.linalg.trace(self.hirshfeld_induced_dipoles_loc[:])
-            else:
-                # TODO: An abortion process
-                print("Invalid component, should be xx, yy, zz or all")
-                return
+            return self.hirshfeld_induced_dipoles_loc
 
-        def inter_atomic_polarizability(self,component,parameters:Tuple[float,float]=(1.0,3.0)):
-            directions = {"xx": int(0), "yy":int(1), "zz": int(2)}
+        def inter_atomic_polarizability(self,parameters:Tuple[float,float]=(1.0,3.0)):
             charge_flow = self.__generate_charge_flow(parameters)
             # print("charge flow")
             # print(charge_flow)
-            inter_atomic_polarizability =np.zeros((self.natoms, self.natoms),dtype=float)
-            if component in directions:
-                direction = directions[component]
-                for i in range(self.natoms):
-                    for j in range(i):
-                        inter_atomic_polarizability[i,j] = charge_flow[direction,i,j] * (
-                            ANGSTROM2BOHR( 
-                                self.coordinates[i,direction]-self.coordinates[j,direction]
+            inter_atomic_polarizability =np.zeros((self.natoms, self.natoms, 3, 3),dtype=float)
+            for i in range(self.natoms):
+                for j in range(i):
+                    for idir in range(3):
+                        for jdir in range(3):
+                            inter_atomic_polarizability[i,j,idir,jdir] = charge_flow[idir,i,j] *(
+                                ANGSTROM2BOHR(
+                                    self.coordinates[i,jdir] - self.coordinates[j, jdir]
+                                )
                             )
-                        )
-                        inter_atomic_polarizability[j,i] = inter_atomic_polarizability[i,j]
-                return inter_atomic_polarizability
-            elif component =="all":
-                inter_atomic_polarizability = (1/3 *
-                    (sum(self.inter_atomic_polarizability(idir,parameters) 
-                        for idir in directions.keys())))
-                return inter_atomic_polarizability
-            else:
-                # Abortion
-                return
+                    inter_atomic_polarizability[j,i,:,:] = inter_atomic_polarizability[i,j,:,:]
+
+            return inter_atomic_polarizability
 
         def __generate_charge_flow(self,parameters:Tuple[float, float]=(1.0,3.0)):
             dis_matrix= ANGSTROM2BOHR(self.__generate_dis_matrix())
