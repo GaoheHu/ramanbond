@@ -7,7 +7,16 @@ __all__ = [
     'collect'
 ]
 try:
-    from chemPackage import collect
+    from chemPackage import collect as chemCollect
+    def collect(filename):
+        d = chemCollect(filename)
+        if "FREQUENCIES" in d.calctype:
+            from .normalmode import normalmode
+            return normalmode(filename)
+        elif "POLARIZABILITY" in d.calctype:
+            from .pol import polarizability
+            return polarizability(filename)
+
 except ImportError:
     def collect(filename):
         d = pol(filename)
