@@ -1,0 +1,28 @@
+[project]
+name = "Raman_bond_model"
+version = "1.0"
+description = "Raman bond model"
+readme = "README.md"
+authors = [
+    { name = "Jensen Research Group", email = "jensen@chem.psu.edu" }
+]
+maintainers = [
+    {name = "Gaohe Hu", email = "gaohehu@gmail.com"}
+]
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "natsort",
+    "setuptools",
+]
+
+[project.urls]
+Homepage = "https://github.com/jensengrouppsu/ramanbond"
+
+[tool.setuptools]
+packages = { find = { where = ["src"] } }
+include-package-data = true
+
+[tool.setuptools.package-dir]
+"" = "src"
