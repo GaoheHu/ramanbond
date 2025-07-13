@@ -2,6 +2,7 @@ import math
 from typing import Tuple 
 from decimal import getcontext,Decimal
 from .conversion import ANGSTROM2BOHR
+
 # Covalent atomic radii in Angstrom
 RBS_DICT_ANGSTROM: dict[str, float] = {
 'H': 0.31,'He': 0.28,'Li': 1.28,'Be': 0.96,'B': 0.84,'C': 0.70,'N': 0.71,'O':
@@ -57,3 +58,27 @@ def calc_charge_flow(parameters:Tuple[float,float], atom1, atom2, distance,
         charge_flow = Decimal('0.0')
 
     return charge_flow
+
+def find_pm_results(dir=None):
+
+    '''
+    Collects all the polarizability files under given directory.
+    By default the directory is cwd.
+    Greatly inspired by chemPackage
+    '''
+    from glob import glob
+    from natsort import natsort_key
+    import os
+
+    if dir is None:
+        dir = os.curdir
+
+    pfiles = glob(os.path.join(dir, 'mode*-p.out'))
+    mfiles = glob(os.path.join(dir, 'mode*-m.out'))
+
+    assert len(mfiles) == len(pfiles), ("Numbers of plus and minus files are note the same")
+
+    mfiles.sort(key=natsort_key)
+    pfiles.sort(key=natsort_key)
+
+    return pfiles, mfiles
