@@ -1,8 +1,8 @@
-from .pol import pol
 
 __version__ = '2.0'
 __all__ = [
     'pol',
+    'normalmode',
     'conversion',
     'collect'
 ]
@@ -16,8 +16,9 @@ try:
         elif "POLARIZABILITY" in d.calctype:
             from .pol import polarizability
             return polarizability(filename)
+        else:
+            print("Calculation not supported in Ramanbond")
 
 except ImportError:
     def collect(filename):
-        d = pol(filename)
-        return d
+        print("Not implemented yet. Please install chemPackage.")
