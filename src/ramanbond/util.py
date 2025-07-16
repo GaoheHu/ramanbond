@@ -82,3 +82,38 @@ def find_pm_results(dir=None):
     pfiles.sort(key=natsort_key)
 
     return pfiles, mfiles
+
+def calc_3component(normalmode,polarizability_derivative_atoms,
+                    polarizability_derivative_bonds, mol_list =
+                    ["C","H","O","N"],clus_list=["Ag","Au"]):
+
+    total_contributions = []
+    for mode in range(normalmode.nmodes):
+        contributions= {"MOLECULE": 0.0, "CLUSTER":0.0, "INTER":0.0}
+
+        atom_group = {}
+        for atom in normalmode.atoms:
+            if atom in mol_list:
+                atom_group[atom] = "MOLECULE"
+            elif atom in clus_list:
+                atom_group[atom] = "CLUSTER"
+            else:
+                print("Atom {} not in either of molecule list or cluster list".format(atom))
+                return
+        for i, atom in enumerate(normalmode.atoms):
+            group = atom_group[atom]
+            contributions[group]+= polarizability_derivative_atoms[mode,i]
+
+        for i in range(normalmode.natoms):
+            for j in range(i):
+                group_i = atom_group[normalmode.atoms[i]]
+                group_j = atom_group[normalmode.atoms[j]]
+
+                if group_i == group_j:
+                    contributions[group_i] += polarizability_derivative_bonds[mode,i,j]
+                else:
+                    contributions["INTER"] += polarizability_derivative_bonds[mode,i,j]
+
+        total_contributions.append(contributions)
+
+    return total_contributions
