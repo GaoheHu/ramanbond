@@ -20,16 +20,18 @@ except ImportError:
         #     return
     
 class polarizability_bond():
-    def __init__(self, pol_out, parameters:Tuple[float,float]=(1.0,3.0)):
-        self.chemObj=AMS(name=pol_out)
+    def __init__(self, outputfile, parameters:Tuple[float,float]=(1.0,3.0)):
+        self.chemObj=AMS(name=outputfile)
         self.parameters = parameters
         self.chemObj._collect(abort=False)
         self.atomic_polarizability = self._calc_atomic_polarizability()
+
+        # Overwrite initial geometry with fragment geometry
+        self.atoms = self.fragment_atoms
+        self.coordinates = self.fragment_coordinates
         if "VELOCITY" not in self.calctype:
-            self.bond_polarizability = \
-            self._calc_bond_polarizability()
-        # for i in self.chemObj.natoms:
-        #     for j in range(0,i):
+            self.bond_polarizability = self._calc_bond_polarizability()
+
     def __getattr__(self, name: str, /):
         if hasattr(self.chemObj, name):
             return getattr(self.chemObj, name)

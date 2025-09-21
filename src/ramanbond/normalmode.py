@@ -6,60 +6,43 @@ from typing import Tuple
 from numpy._typing import NDArray
 from decimal import Decimal
 
-from .util import find_pm_results
-try:
-    from chemPackage.ams import AMS
-    class normalmode(AMS):
-        def __init__(self,freqout):
-            AMS.__init__(self,name=freqout)
-            self._collect(abort=True)
-        def calc_raman_bond(self, dir=None, component = "all",
-                            parameters:Tuple[float,float]=(1.0,3.0), sR=0.01):
-            '''
-            Calculate Raman bonds
-            Return Raman intensity, Raman atoms and Raman bonds
-            '''
-            from .pol import polarizability
-            if dir is None:
-                dir = os.curdir
-            pnames, mnames = find_pm_results(dir)
-            # Reuse chemPackage to read e_freqeuncies and modify v_frequencies
-            self.collect_raman_derivatives(dir = dir)
+from .util import find_pm_results, angle_to_rgb
+from .pol import polarizability_bond, AMS
+from .conversion import ANGSTROM2BOHR
 
-            polarizability_derivative_atoms = np.zeros((self.nmodes,
-                                                        self.natoms, 3, 3),
-                                                       dtype=float)
-            polarizability_derivative_bonds = np.zeros((self.nmodes,
-                                                        self.natoms,self.natoms,
-                                                        3, 3), dtype=float)
-            sQ = self.step_size(sR)
-            temp = np.zeros((len(sQ),3,3))
-            sQ = np.array([temp[i] + sQ[i] for i in range(len(sQ))])
-            for i in range(self.nmodes):
-                p = polarizability(pnames[i])
-                m = polarizability(mnames[i])
-                # Atomic polarizability tensor (natoms, 3, 3)
-                temp_atoms = p.atomic_polarizability(component) - m.atomic_polarizability(component)
-                temp_atoms[:]  = temp_atoms[:]/(2 * sQ[i])
-                polarizability_derivative_atoms[i] = temp_atoms
-                # Inter atomic polarizability tensor (natoms, natoms 3, 3)
-                temp_bonds = (p.inter_atomic_polarizability(parameters=parameters,component=component) -
-                              m.inter_atomic_polarizability(parameters=parameters,component=component)  )
-                temp_bonds[:,:] = temp_bonds[:,:]/(2 * sQ[i])
-                polarizability_derivative_bonds[i] = temp_bonds
+class raman_bond(polarizability_bond):
 
-            raman_intensity = self.raman_cross_section(component=component, quiet=True)
+    def __init__(self,outputfile,parameters:Tuple[float,float]=(1.0,3.0)):
+        self.chemObj = AMS(name=outputfile)
+        self.parameters = parameters
+        self.chemObj._collect(abort =False)
+        self.atoms = self.fragment_atoms
+        self.coordinates = self.fragment_coordinates
+        self.__generate_dis_matrix()
 
-            return raman_intensity, polarizability_derivative_atoms, polarizability_derivative_bonds
+    def collect_raman_derivatives(self, dir=None, sR=0.01):
+        if dir is None:
+            dir = os.curdir
+        pnames, mnames = find_pm_results(dir)
+        self.chemObj.collect_raman_derivatives(dir = dir)
+        raman_atoms = np.zeros((self.nmodes, self.natoms,3, 3), dtype=np.complex128)
+        raman_bonds = np.zeros((self.nmodes, self.natoms,self.natoms, 3,3), dtype=np.complex128)
+        sQ = self.step_size(sR)
+        for i in range(self.nmodes):
+            p = polarizability_bond(pnames[i],parameters=self.parameters)
+            m = polarizability_bond(mnames[i],parameters=self.parameters)
+            # Atomic polarizability tensor (natoms, 3, 3)
+            temp_atoms = p.atomic_polarizability - m.atomic_polarizability
+            temp_atoms[:]  = temp_atoms[:]/(2 * sQ[i])
+            raman_atoms[i] = temp_atoms
+            # Inter atomic polarizability tensor (natoms, natoms 3, 3)
+            if "VELOCITY" not in p.calctype:
+                temp_bonds = (p.bond_polarizability - m.bond_polarizability)
+                temp_bonds = temp_bonds/(2 * sQ[i])
+                raman_bonds[i] = temp_bonds
 
-        # def __generate_dis_matrix(self) -> NDArray[np.float64]:
-        #     # Generate atom distance matrix R_AB
-        #     dis_matrix = np.zeros((self.natoms, self.natoms),dtype=float)
-        #     for i in range(self.natoms):
-        #         for j in range(i):
-        #             dis_matrix[i][j] = np.linalg.norm(self.coordinates[i]-self.coordinates[j])
-        #             dis_matrix[j][i] = dis_matrix[i][j]
-        #     return dis_matrix
+        self.raman_atoms = raman_atoms
+        self.raman_bonds = raman_bonds
 
         # def __generate_cos_matrix(self,dis_matrix) -> NDArray[np.float64]:
         #     cos_matrix = np.zeros((3,self.natoms, self.natoms))
