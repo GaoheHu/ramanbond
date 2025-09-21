@@ -2,6 +2,7 @@ import math
 from typing import Tuple 
 from decimal import getcontext,Decimal
 from .conversion import ANGSTROM2BOHR
+import math
 
 # Covalent atomic radii in Angstrom
 RBS_DICT_ANGSTROM: dict[str, float] = {
@@ -19,6 +20,7 @@ for key in RBS_DICT_ANGSTROM:
 
 def penalty_fucntion(parameters: Tuple[float,float], Za, Zb, distance,
                      anglecos):
+    # TODO: Add in reference
     # The penalty function for LoProp.
     sum_cov_distance = RBS_DICT_BOHR[Za] + RBS_DICT_BOHR[Zb]
     try:
@@ -114,3 +116,27 @@ def calc_3component(normalmode,polarizability_derivative_atoms,
         total_contributions.append(contributions)
 
     return total_contributions
+
+def angle_to_rgb(angle):
+    # Normalize angle into [-π, π]
+    angle = ((angle + math.pi) % (2 * math.pi)) - math.pi
+
+    # Map angle to range [-3, 3]
+    p = (3.0 * angle) / math.pi
+
+    if -3 <= p < -2:      # Red → Yellow
+        R, G, B = 1, p + 3, 0
+    elif -2 <= p < -1:    # Yellow → Green
+        R, G, B = -1 - p, 1, 0
+    elif -1 <= p < 0:     # Green → Cyan
+        R, G, B = 0, 1, p + 1
+    elif 0 <= p < 1:      # Cyan → Blue
+        R, G, B = 0, 1 - p, 1
+    elif 1 <= p < 2:      # Blue → Magenta
+        R, G, B = p - 1, 0, 1
+    elif 2 <= p <= 3:     # Magenta → Red
+        R, G, B = 1, 0, 3 - p
+    else:
+        raise ValueError(f"Unexpected p value: {p}")
+
+    return float(R), float(G), float(B)

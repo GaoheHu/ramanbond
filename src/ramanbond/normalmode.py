@@ -1,10 +1,8 @@
-import os
+import os, sys
 import numpy as np
-import math
-from numpy.typing import NDArray
+import math, cmath
 from typing import Tuple
-from numpy._typing import NDArray
-from decimal import Decimal
+import textwrap
 
 from .util import find_pm_results, angle_to_rgb
 from .pol import polarizability_bond, AMS
@@ -44,104 +42,72 @@ class raman_bond(polarizability_bond):
         self.raman_atoms = raman_atoms
         self.raman_bonds = raman_bonds
 
-        # def __generate_cos_matrix(self,dis_matrix) -> NDArray[np.float64]:
-        #     cos_matrix = np.zeros((3,self.natoms, self.natoms))
-        #     for i in range(self.natoms):
-        #         for j in range(i):
-        #             for ii in range(3):
-        #                 cos_matrix[ii,i,j] = abs(np.dot((self.coordinates[i] -
-        #                     self.coordinates[j]), np.identity(3)[ii]) /
-        #                     dis_matrix[i,j])
-        #                 cos_matrix[ii,j,i] = cos_matrix[ii,i,j]
-        #     return cos_matrix
+    def plot_bond(self, numbond=70, SCALE=1, component="all"):
+        # if mode not in self.v_frequencies:
+        #     print("The requested normal mode is not calculated")
 
-        # def __solve_lagrange(self,dis_matrix, cos_matrix,parameters:Tuple[float,float]=(1.0,3.0)):
-        #     lambda_matrix = np.zeros((self.natoms, self.natoms),dtype = object)
-        #     for i in range(self.natoms):
-        #         for j in range(i):
-        #             # NOTE: I don't know why we are using Decimal here.
-        #             lambda_matrix[i,j] = Decimal(inter_atomic_lambda(parameters,self.atoms[i],
-        #                                                              self.atoms[j], 
-        #                                                              dis_matrix[i,j],
-        #                                                              cos_matrix[i,j]))
-        #             lambda_matrix[j,i] = lambda_matrix[i,j]
-        #         lambda_matrix[i,i] = Decimal(-1*sum(lambda_matrix[i,:])) # Add an arbitrary constant C = 1.0
-        #     lambda_matrix += Decimal('1.0')
-        #
-        #     lambda_solution = np.linalg.solve(lambda_matrix, self.hirshfeld_induced_charges.T)
-        #
-        #     charge_flow = np.zeros((self.natoms, self.natoms), dtype = object)
-        #
-        #     for i in range(self.natoms):
-        #         for j in range(i):
-        #             charge_flow[i, j] = calc_charge_flow(parameters, self.atoms[i], self.atoms[j],
-        #                                                  dis_matrix[i,j], cos_matrix[i,j],
-                    #                                      lambda_solution[i], lambda_solution[j])
-                    # charge_flow[j,i] = charge_flow[i,j]
-                    #
-            # return
-except ImportError:
-    import numpy as np
-    class normalmode(object):
-        '''
-        A mini-chemPackage. Targeted to collect information from AMS2021 above results.
-        Information to collect:
-        - Geometry
-        - Normal modes
-        '''
-        def __init__(self, freqout):
-            self.filename = 'freqout'
-            f = open(freqout)
-            fl = f.readlines()
-            self.natoms = 0
-            self.atoms = None
-            self.coordinates = None
-            self.collect_geometry(fl)
-            f.close()
-        # Only to be overide across different engine I guess
-        def collect_geometry(self, fl):
-            # self.atomnote = 
-            # self.coord = 
-            s=e=0
-            for i in range(len(fl)):
-                if "Geometry" in fl[i]:
-                    ii=0
-                    i+=5
-                    s=i
-                    while True:
-                        ii+=1
-                        if len(fl[i].split()) == 0:
-                            e = i
-                            break
-                        else:
-                            i+=1
+        dirs = {"xx":0, "yy":1, "zz":2}
+        if component in dirs:
+            raman_atom = self.raman_atoms[:,:, dirs[component], dirs[component]]
+            raman_bond = self.raman_bonds[:,:,:,dirs[component], dirs[component]]
+        else:
+            print("Considering the isotropic component")
+            raman_atom = np.trace(self.raman_atoms, axis1=2, axis2=3)
+            raman_bond = np.trace(self.raman_bonds, axis1=3, axis2=4)
+        # Adjust the sign
+        if np.sum(raman_bond).real+np.sum(raman_atom).real <= 0:
+            raman_atom = - raman_atom
+            raman_bond = - raman_bond 
 
-                break
-            self.natoms = e-s
-            self.coordinates = np.empty((self.natoms,3), dtype=float)
-            self.atoms = np.empty((self.natoms),dtype='<U1')
-            for i, line in enumerate(fl[s:e]):
-                self.coordinates[i] = line.strip("\n").split()[1:]
-                self.atoms[i] = line.strip("\n").split()[0]
-            return
+        # Limit number of bonds shown
+        bond_magnitude = np.sort(raman_bond,axis = None)
+        if numbond < len(bond_magnitude):
+            threshold = bond_magnitude[numbond-1]
+        else:
+             threshold = bond_magnitude[-1]
 
-        # This is different for ADF and AMS
-        def vib_freq(self,line):
-            ln = line.split()
-            if not ln:
-                return False
-            elif line == " Index  Atom      ---- Displacements (x/y/z) ----":
-                return True
-            else:
-                return False
 
-        # TODO: Implementation
-        def collect_normalmode(self, fl):
-            return
+        self.coordinates = self.fragment_coordinates
+        self.atoms = self.fragment_atoms
+        self.writeCoords()
+        for n, mode in enumerate(self.v_frequencies):
+            with open(self.filename[:-4]+".mode{:.2f}".format(mode)+".pml", "w") as f:
+                sys.stdout = f
+                print(textwrap.dedent("""
+                load {}.xyz
+                preset.ball_and_stick, all 
+                set sphere_scale, 0.00001, all
+                set_bond stick_radius, 0.0000000001, all
+                """.format(self.filename[:-4] )))
 
-        def calc_polbond(self, p_files, m_files, component = "all"):
-# TODO: Check if there is a one-to-one correspondence between plus and minus
-            from .pol import pol
-
-            return
-
+                counter = 0
+                for i in range(self.natoms):
+                    r_atom = ((abs(raman_atom[n,i]/SCALE)*3 / 
+                        (4*math.pi*(ANGSTROM2BOHR(1))**3))**(1/3))
+                    print("set sphere_scale, {}, {}/{}".format(r_atom, i+1, self.atoms[i]))
+                    
+                    R, G, B = angle_to_rgb(cmath.polar(raman_atom[n,i])[1])
+                    print("set_color atomcolor{}, [{},{},{}]".format(i+1, R, G, B))
+                    print("color atomcolor{}, {}/{}".format(i+1, i+1, self.atoms[i]))
+                    for j in range(i):
+                        if cmath.polar(raman_bond[n, i,j])[0] > threshold:
+                            counter+=1
+                            r_bond = math.sqrt((abs(raman_bond[n,i,
+                                j]/SCALE)/(self.dis_matrix[i,j]*math.pi*(ANGSTROM2BOHR**3.0))))
+                            print("bond {}/{}, {}/{}".format(i+1,self.atoms[i],  j+1, self.atoms[j]))
+                            print("select bond{}, {}/{} {}/{}".format(counter, i+1, self.atoms[i], j+1, self.atoms[j]))
+                            print("set_bond stick_radius, {}, bond{}".format(r_bond, counter))
+                            R,G,B = angle_to_rgb(cmath.polar(raman_bond[n,i,j])[1])
+                            print("set_color bondcolor{}, [{}, {},{}]".format(counter, R,G,B))
+                            print("set_bond stick_color, bondcolor{}, bond{}".format(counter, counter))
+                print("show sticks, all")
+        return
+    def __generate_dis_matrix(self):
+        # Generate atom distance matrix R_AB
+        dis_matrix = np.zeros((self.natoms, self.natoms),dtype=float)
+        for i in range(self.natoms):
+            for j in range(i):
+                dis_matrix[i][j] = np.linalg.norm(self.coordinates[i]-self.coordinates[j])
+                dis_matrix[j][i] = dis_matrix[i][j]
+        self.dis_matrix = dis_matrix
+        return 

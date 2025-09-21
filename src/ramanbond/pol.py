@@ -1,12 +1,14 @@
-from dataclasses import dataclass, field
 import numpy as np
 from numpy._typing import NDArray
-from typing import Tuple, Type
+from typing import Tuple
 from decimal import Decimal
+import math, cmath
+import textwrap
 
 from .util import inter_atomic_lambda, calc_charge_flow
 from .conversion import ANGSTROM2BOHR
-# This is basically a minimal version of chemPacakge collection
+from .util import angle_to_rgb
+# This is basically a minimal version of chemPackage collection
 # Works for ADF and AMS only
 try:
     from chemPackage.ams import AMS
@@ -37,6 +39,67 @@ class polarizability_bond():
             return getattr(self.chemObj, name)
         raise AttributeError(f"{self.__class__.__name__} has no attribute '{name}'")
         
+    def plot_bond(self, numbond=70, SCALE=1, component="all"):
+        # if mode not in self.v_frequencies:
+        #     print("The requested normal mode is not calculated")
+
+        import sys
+        dirs = {"xx":0, "yy":1, "zz":2}
+        if component in dirs:
+            raman_atom = self.atomic_polarizability[:, dirs[component], dirs[component]]
+            raman_bond = self.bond_polarizability[:,:,dirs[component], dirs[component]]
+        else:
+            print("Considering the isotropic component")
+            raman_atom = np.trace(self.atomic_polarizability, axis1=1, axis2=2)
+            raman_bond = np.trace(self.bond_polarizability, axis1=2, axis2=3)
+        # Adjust the sign
+        if np.sum(raman_bond).real+np.sum(raman_atom).real <= 0:
+            raman_atom = - raman_atom
+            raman_bond = - raman_bond 
+
+        # Limit number of bonds shown
+        bond_magnitude = np.sort(raman_bond,axis = None)
+        if numbond < len(bond_magnitude):
+            threshold = bond_magnitude[numbond-1]
+        else:
+             threshold = bond_magnitude[-1]
+
+
+        self.coordinates = self.fragment_coordinates
+        self.atoms = self.fragment_atoms
+        self.writeCoords()
+        with open(self.filename[:-4]+".pml", "w") as f:
+            sys.stdout = f
+            print(textwrap.dedent("""
+            load {}.xyz
+            preset.ball_and_stick, all 
+            set sphere_scale, 0.00001, all
+            set stick_radius, 0.0000000001, all
+            """.format(self.filename[:-4] )))
+
+            counter = 0
+            for i in range(self.natoms):
+                # print("sef spere_scale, 0.0000001, {}".format(self.atoms[i]))
+                r_atom = ((abs(raman_atom[i]/SCALE)*3 / 
+                    (4*math.pi*(ANGSTROM2BOHR(1))**3))**(1/3))
+                print("set sphere_scale, {}, {}/{}".format(r_atom, i+1, self.atoms[i]))
+                
+                R, G, B = angle_to_rgb(cmath.polar(raman_atom[i])[1])
+                print("set_color atomcolor{}, [{},{},{}]".format(i+1, R, G, B))
+                print("color atomcolor{}, {}/{}".format(i+1, i+1, self.atoms[i]))
+                for j in range(i):
+                    if cmath.polar(raman_bond[i,j])[0] > threshold:
+                        counter+=1
+                        r_bond = math.sqrt((abs(raman_bond[i,
+                            j]/SCALE)/(self.dis_matrix[i,j]*math.pi*(ANGSTROM2BOHR**3.0))))
+                        print("bond {}/{}, {}/{}".format(i+1,self.atoms[i],  j+1, self.atoms[j]))
+                        print("select bond{}, {}/{} {}/{}".format(counter, i+1, self.atoms[i], j+1, self.atoms[j]))
+                        print("set_bond stick_radius, {}, bond{}".format(r_bond, counter))
+                        R,G,B = angle_to_rgb(cmath.polar(raman_bond[i,j])[1])
+                        print("set_color bondcolor{}, [{}, {},{}]".format(counter, R,G,B))
+                        print("set_bond stick_color, bondcolor{}, bond{}".format(counter, counter))
+                print("show sticks, all")
+        return
 
     def _calc_atomic_polarizability(self):
         # Local part of Hirshfeld partitioned polarizability
@@ -55,9 +118,10 @@ class polarizability_bond():
                     for jdir in range(3):
                         bond_polarizability[i,j,idir,jdir] = charge_flow[idir,i,j] *(
                                 ANGSTROM2BOHR(
-                                    self.fragment_coordinates[i,jdir] - self.fragment_coordinates[j, jdir]
+                                    self.coordinates[i,jdir] - self.coordinates[j, jdir]
                                 )
                         )
+                        bond_polarizability[j,i:,:] = bond_polarizability[i,j,:,:]
         return bond_polarizability
 
     def __generate_charge_flow(self):
@@ -76,6 +140,7 @@ class polarizability_bond():
             for j in range(i):
                 dis_matrix[i][j] = np.linalg.norm(self.coordinates[i]-self.coordinates[j])
                 dis_matrix[j][i] = dis_matrix[i][j]
+        self.dis_matrix = dis_matrix
         return dis_matrix
 
     def __generate_cos_matrix(self) -> NDArray[np.float64]:
