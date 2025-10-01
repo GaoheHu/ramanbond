@@ -14,8 +14,8 @@ class raman_bond(polarizability_bond):
         self.chemObj = AMS(name=outputfile)
         self.parameters = parameters
         self.chemObj._collect(abort =False)
-        self.atoms = self.fragment_atoms
-        self.coordinates = self.fragment_coordinates
+        # self.atoms = self.fragment_atoms
+        # self.coordinates = self.fragment_coordinates
         self.__generate_dis_matrix()
 
     def collect_raman_derivatives(self, dir=None, sR=0.01):
@@ -38,6 +38,11 @@ class raman_bond(polarizability_bond):
                 temp_bonds = (p.bond_polarizability - m.bond_polarizability)
                 temp_bonds = temp_bonds/(2 * sQ[i])
                 raman_bonds[i] = temp_bonds
+
+        # If you don't have fragment atoms in frequency calculation
+        if self.fragment_atoms is None:
+            self.fragment_atoms = p.fragment_atoms
+            self.fragment_coordinates = 0.5 * (p.fragment_coordinates + m.fragment_coordinates)
 
         self.raman_atoms = raman_atoms
         self.raman_bonds = raman_bonds
