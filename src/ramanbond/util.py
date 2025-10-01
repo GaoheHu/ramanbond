@@ -50,9 +50,9 @@ def inter_atomic_lambda(parameters:Tuple[float,float], atom1, atom2, distance, a
 def calc_charge_flow(parameters:Tuple[float,float], atom1, atom2, distance,
                      angle_cos, lambda_i, lambda_j):
     try:
-        charge_flow = -1 *( (Decimal(lambda_i) - Decimal(lambda_j)) /
-                        (Decimal(str(2*penalty_fucntion(parameters, atom1, atom2, distance,
-                                        angle_cos)))))
+        charge_flow = -1 *( (lambda_i - lambda_j) /
+                        (2*penalty_fucntion(parameters, atom1, atom2, distance,
+                                        angle_cos)))
     except OverflowError:
         charge_flow = Decimal('0.0')
 
