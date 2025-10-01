@@ -1,5 +1,9 @@
 # ramanbond
-The python package processes outputs of ADF or BAND by SCM and generate Raman bonds, which provides an intuitive interpretation of Raman spectra based on bonding networks of studied systems. More details about the model (Raman bond model) are available from J. Chem. Phys., 152, 024126 and J. Chem. Phys., 153, 224704. The model can be extended to other computational chemistry software as long as atomic charges and atomic dipoles are given.
+The python package processes outputs of ADF or BAND by SCM and generate Raman bonds, which provides an intuitive interpretation of Raman spectra based on bonding networks of studied systems. More details about the model (Raman bond model) are available from 
+- [J. Chem. Phys., 152, 024126](https://doi.org/10.1063/1.5138204)
+- [J. Chem. Phys., 153, 224704.](https://doi.org/10.1063/5.0031221)
+
+The model can be extended to other computational chemistry software as long as atomic charges and atomic dipoles are given.
 
 # Dependencies
 The package depends on python packages numpy, math, cmath, decimal, and pickle. The plotting of Raman bonds depends on Pymol. 
@@ -19,6 +23,6 @@ d.collect_raman_derivatives() # If you are collecting Raman results
 d.plot_bond()
 ```
 
-# additional Notes
+# Additional Notes
 
 We plan to implement a new collection back end that is independent of chemPackage
