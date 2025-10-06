@@ -111,7 +111,7 @@ class polarizability_bond():
 
     def _calc_bond_polarizability(self):
         charge_flow = self.__generate_charge_flow()
-        bond_polarizability =np.zeros((self.natoms, self.natoms, 3,3),dtype=float)
+        bond_polarizability =np.zeros((self.natoms, self.natoms, 3,3),dtype=np.complex128)
         for i in range(self.natoms):
             for j in range(i):
                 for idir in range(3):
@@ -158,15 +158,14 @@ class polarizability_bond():
         lambda_matrix = np.zeros((self.natoms, self.natoms),dtype = float)
         for i in range(self.natoms):
             for j in range(i):
-                # NOTE: I don't know why we are using Decimal here.
                 lambda_matrix[i,j] = \
-                Decimal(inter_atomic_lambda(self.parameters,self.atoms[i],
+                inter_atomic_lambda(self.parameters,self.atoms[i],
                                             self.atoms[j], dis_matrix[i,j],
-                                            cos_matrix[i,j]))
+                                            cos_matrix[i,j])
                 lambda_matrix[j,i] = lambda_matrix[i,j]
             # lambda_matrix[i,i] = Decimal(-1*sum(lambda_matrix[i,:])) # Add an arbitrary constant C = 1.0
         for i in range(self.natoms):
-            lambda_matrix[i,i] = Decimal(-1*sum(lambda_matrix[i]))
+            lambda_matrix[i,i] = -1*sum(lambda_matrix[i])
         lambda_matrix += 1.0
 
         lambda_solution = np.linalg.solve(lambda_matrix, self.hirshfeld_induced_charges.T[idir])

@@ -36,7 +36,6 @@ def penalty_fucntion(parameters: Tuple[float,float], Za, Zb, distance,
 def inter_atomic_lambda(parameters:Tuple[float,float], atom1, atom2, distance, angle_cos):
     # Return lambda between atom a and atom b
     # To constrcut a matrix lambda
-    getcontext().prec = 28
     try:
         if distance == 0:
             return 0.0
@@ -54,7 +53,7 @@ def calc_charge_flow(parameters:Tuple[float,float], atom1, atom2, distance,
                         (2*penalty_fucntion(parameters, atom1, atom2, distance,
                                         angle_cos)))
     except OverflowError:
-        charge_flow = Decimal('0.0')
+        charge_flow = 0.0
 
     return charge_flow
 
