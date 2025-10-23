@@ -65,11 +65,13 @@ class raman_bond(polarizability_bond):
             raman_bond = - raman_bond 
 
         # Limit number of bonds shown
-        bond_magnitude = np.sort(raman_bond,axis = None)
-        if numbond < len(bond_magnitude):
-            threshold = bond_magnitude[numbond-1]
-        else:
-             threshold = bond_magnitude[-1]
+        threshold = np.zeros(self.nmodes)
+        for i in range(self.nmodes):
+            bond_magnitude = np.sort(np.abs(np.ravel(raman_bond[i])))[::-1]
+            if numbond < len(bond_magnitude):
+                threshold[i] = bond_magnitude[numbond-1]
+            else:
+                 threshold = bond_magnitude[-1]
 
 
         self.coordinates = self.fragment_coordinates
@@ -95,9 +97,9 @@ class raman_bond(polarizability_bond):
                     print("set_color atomcolor{}, [{},{},{}]".format(i+1, R, G, B))
                     print("color atomcolor{}, {}/{}".format(i+1, i+1, self.atoms[i]))
                     for j in range(i):
-                        if cmath.polar(raman_bond[n, i,j])[0] > threshold:
+                        if np.abs(raman_bond[n, i,j]) > np.abs(threshold[n]):
                             counter+=1
-                            r_bond = math.sqrt((abs(raman_bond[n,i,
+                            r_bond = math.sqrt((np.abs(raman_bond[n,i,
                                 j]/SCALE)/(self.dis_matrix[i,j]*math.pi*(ANGSTROM2BOHR**3.0))))
                             print("bond {}/{}, {}/{}".format(i+1,self.atoms[i],  j+1, self.atoms[j]))
                             print("select bond{}, {}/{} {}/{}".format(counter, i+1, self.atoms[i], j+1, self.atoms[j]))
